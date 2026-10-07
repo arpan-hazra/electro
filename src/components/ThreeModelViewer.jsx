@@ -1,7 +1,9 @@
 // src/components/ThreeModelViewer.jsx
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { RotateCw, Eye, Maximize2, Layers, Sun, Sparkles, HelpCircle, Compass } from 'lucide-react';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
+import { RotateCw, Eye, Maximize2, Layers, Sun, Sparkles, HelpCircle, Compass, Download, Upload, Check } from 'lucide-react';
 
 export default function ThreeModelViewer({
   modelType = 'arduino',
@@ -12,10 +14,13 @@ export default function ThreeModelViewer({
   showControls = true,
 }) {
   const mountRef = useRef(null);
+  const fileInputRef = useRef(null);
   const [isAutoRotate, setIsAutoRotate] = useState(autoRotateDefault);
   const [isWireframe, setIsWireframe] = useState(false);
   const [isExploded, setIsExploded] = useState(false);
   const [lightPreset, setLightPreset] = useState('studio'); // 'studio', 'cyber', 'bright'
+  const [isGLBLoaded, setIsGLBLoaded] = useState(false);
+  const [exportSuccess, setExportSuccess] = useState(false);
   const [inspectedPin, setInspectedPin] = useState(null);
 
   // References to keep between renders
@@ -34,6 +39,59 @@ export default function ThreeModelViewer({
 
   // Dynamic animation references (e.g. servo horn, ultrasonic wave, wheels)
   const dynamicPartsRef = useRef({});
+
+  // Export current real 3D model to industry-standard .GLB (glTF binary)
+  const handleExportGLB = () => {
+    if (!modelGroupRef.current) return;
+    const exporter = new GLTFExporter();
+    exporter.parse(
+      modelGroupRef.current,
+      (gltf) => {
+        const blob = new window.Blob([gltf], { type: 'application/octet-stream' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${modelType}-real-3d-model.glb`;
+        link.click();
+        setExportSuccess(true);
+        setTimeout(() => setExportSuccess(false), 2500);
+      },
+      (error) => {
+        console.error('Error exporting real 3D GLB model:', error);
+      },
+      { binary: true }
+    );
+  };
+
+  // Import custom real 3D model (.glb / .gltf) from computer
+  const handleImportGLB = (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !modelGroupRef.current || !sceneRef.current) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const loader = new GLTFLoader();
+      loader.parse(
+        event.target.result,
+        '',
+        (gltf) => {
+          // Clear current model children
+          while (modelGroupRef.current.children.length > 0) {
+            modelGroupRef.current.remove(modelGroupRef.current.children[0]);
+          }
+          // Compute bounding box to normalize scale
+          const box = new THREE.Box3().setFromObject(gltf.scene);
+          const size = box.getSize(new THREE.Vector3());
+          const maxDim = Math.max(size.x, size.y, size.z) || 1;
+          const scaleFactor = 6.0 / maxDim;
+          gltf.scene.scale.set(scaleFactor, scaleFactor, scaleFactor);
+          gltf.scene.position.y = -size.y * scaleFactor * 0.2;
+          modelGroupRef.current.add(gltf.scene);
+          setIsGLBLoaded(true);
+        },
+        (error) => console.error('Failed to parse user 3D GLTF:', error)
+      );
+    };
+    reader.readAsArrayBuffer(file);
+  };
 
   useEffect(() => {
     const container = mountRef.current;
@@ -124,8 +182,27 @@ export default function ThreeModelViewer({
     explodedPartsRef.current = [];
     dynamicPartsRef.current = {};
 
-    // 7. Procedural Model Construction
-    buildProceduralModel(modelType, modelGroup, explodedPartsRef.current, dynamicPartsRef.current);
+    // 7. Real 3D Model Construction (GLB Loader with Procedural CAD Fallback)
+    const glbUrl = `/models/${modelType}.glb`;
+    const loader = new GLTFLoader();
+    loader.load(
+      glbUrl,
+      (gltf) => {
+        const box = new THREE.Box3().setFromObject(gltf.scene);
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z) || 1;
+        const scaleFactor = 6.5 / maxDim;
+        gltf.scene.scale.set(scaleFactor, scaleFactor, scaleFactor);
+        gltf.scene.position.y = -size.y * scaleFactor * 0.2;
+        modelGroup.add(gltf.scene);
+        setIsGLBLoaded(true);
+      },
+      undefined,
+      () => {
+        // Fallback to internal CAD procedural model
+        buildProceduralModel(modelType, modelGroup, explodedPartsRef.current, dynamicPartsRef.current);
+      }
+    );
 
     // 8. Mouse & Touch Orbit Controls Handling
     let isDragging = false;
@@ -410,12 +487,18 @@ export default function ThreeModelViewer({
           <span className="text-slate-400 text-xs hidden sm:inline">• {title}</span>
         </div>
 
-        {/* Creator Mark */}
-        <div className="pointer-events-auto bg-slate-900/80 backdrop-blur-md border border-cyan-500/20 px-2.5 py-1 rounded-full text-[11px] font-mono text-cyan-400 flex items-center gap-1.5 shadow-lg">
-          <Sparkles className="w-3 h-3 text-cyan-400" />
-          <span>Quartz Arpan Model</span>
+        {/* Creator & Real 3D Format Mark */}
+        <div className="pointer-events-auto flex items-center gap-1.5">
+          <div className="bg-slate-900/80 backdrop-blur-md border border-cyan-500/20 px-2.5 py-1 rounded-full text-[11px] font-mono text-cyan-400 flex items-center gap-1.5 shadow-lg">
+            <Sparkles className="w-3 h-3 text-cyan-400" />
+            <span>{isGLBLoaded ? 'Real 3D GLB CAD Model' : 'Quartz 3D CAD Geometry'}</span>
+          </div>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
+            Real-Time WebGL
+          </span>
         </div>
       </div>
+
 
       {/* 3D Canvas Mount */}
       <div
@@ -482,8 +565,36 @@ export default function ThreeModelViewer({
           >
             Reset
           </button>
+
+          {/* Export Real 3D Model File (.GLB CAD) */}
+          <button
+            onClick={handleExportGLB}
+            title="Download Real 3D Model (.GLB CAD format for Blender/Three.js/CAD)"
+            className={`p-2 rounded-lg text-xs font-medium transition-all ${
+              exportSuccess ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'text-slate-400 hover:text-cyan-300 hover:bg-slate-800'
+            }`}
+          >
+            {exportSuccess ? <Check className="w-4 h-4 text-emerald-400" /> : <Download className="w-4 h-4" />}
+          </button>
+
+          {/* Import Custom 3D Model (.GLB / .GLTF) */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            title="Upload Custom Real 3D Model (.GLB / .GLTF)"
+            className="p-2 rounded-lg text-xs font-medium text-slate-400 hover:text-purple-300 hover:bg-slate-800 transition-all"
+          >
+            <Upload className="w-4 h-4" />
+          </button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleImportGLB}
+            accept=".glb,.gltf"
+            className="hidden"
+          />
         </div>
       )}
+
     </div>
   );
 }
