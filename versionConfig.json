@@ -1,0 +1,75 @@
+{
+  "appName": "Vibely",
+  "appVersion": "0.1",
+  "buildNumber": 101,
+  "releaseDate": "2026-10-01",
+  "minSupportedVersion": "0.1",
+  "isMandatory": false,
+  "updateType": "minor",
+  "updateTitle": "Initial Release",
+  "updateDescription": "Welcome to Vibely 0.1 - secure, vibrant messaging with dedicated privacy and rich media sharing.",
+  "whatsNew": [
+    "Initial release",
+    "Account creation",
+    "Messaging",
+    "Image sharing"
+  ],
+  "serverAvailableVersion": {
+    "version": "0.2",
+    "buildNumber": 105,
+    "releaseDate": "2026-10-05",
+    "updateType": "minor",
+    "isMandatory": false,
+    "title": "Vibely 0.2 is available",
+    "whatsNew": [
+      "Improved chat interface",
+      "New image gallery",
+      "Better performance",
+      "Safety improvements"
+    ]
+  },
+  "releaseHistory": [
+    {
+      "version": "0.2",
+      "buildNumber": 105,
+      "date": "2026-10-05",
+      "type": "minor",
+      "title": "Vibely 0.2",
+      "highlights": [
+        "New chat design",
+        "Improved image sharing",
+        "Safety improvements"
+      ]
+    },
+    {
+      "version": "0.1",
+      "buildNumber": 101,
+      "date": "2026-10-01",
+      "type": "minor",
+      "title": "Vibely 0.1",
+      "highlights": [
+        "Initial release",
+        "Account creation",
+        "Messaging",
+        "Image sharing"
+      ]
+    }
+  ],
+  "updateLevels": {
+    "minor": {
+      "label": "Minor update",
+      "example": "0.1 → 0.2",
+      "description": "New features, UI improvements, bug fixes"
+    },
+    "feature": {
+      "label": "Larger feature update",
+      "example": "0.2 → 0.5",
+      "description": "Major groups of new features, significant design changes"
+    },
+    "major": {
+      "label": "Major release",
+      "example": "0.x → 1.0",
+      "description": "Used when Vibely reaches its first stable public release"
+    }
+  }
+}
